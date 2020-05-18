@@ -15,8 +15,7 @@ namespace MemeBot.Telegram_Client
     public static class Tg
     {
         private static ITelegramBotClient Bot;
-        const string Token = "982750050:AAHtiha5647ulyjp9o_6Z-yoUqCsbuIjdyo";
-        //private static string _caption = null;
+        private const string Token = "982750050:AAHtiha5647ulyjp9o_6Z-yoUqCsbuIjdyo";
         public static void Start()
         {
             Bot=new TelegramBotClient(Token);
@@ -35,7 +34,7 @@ namespace MemeBot.Telegram_Client
                 if (File.Exists($"{e.Message.Chat.Id}"))
                 {
                     string caption = e.Message.Text;
-                    if (e.Message.Text.Split(' ').First().ToLower() == "/no")
+                    if (e.Message.Text.ToLower() == "/no")
                     {
                         await Bot.SendTextMessageAsync(e.Message.Chat, "Saving Picture Without Caption");
                         caption = null;
@@ -53,13 +52,10 @@ namespace MemeBot.Telegram_Client
                         }
                     }
                 }
-                
-                Console.WriteLine("Here");
                 Console.WriteLine(e.Message.Text.Split(' ').First());
                 switch (e.Message.Text.Split(' ').First())
                 {
                     case "/count":
-                        Console.WriteLine("hola");
                         var files = Directory
                             .EnumerateFiles("/home/dharmy/Pictures", "*.*", SearchOption.AllDirectories)
                             .Where(s => s.EndsWith(".jpg",StringComparison.OrdinalIgnoreCase)||s.EndsWith(".png",StringComparison.OrdinalIgnoreCase));
@@ -67,9 +63,13 @@ namespace MemeBot.Telegram_Client
                         foreach (var file in files) count++;
                         await Bot.SendTextMessageAsync(e.Message.Chat,$"There Are {count} Memes Available Rn");
                         break;
-                    
+                    case "/help":
+                        string help = $"Hello {e.Message.Chat.FirstName}" +
+                                      "You Don't Need A Help Text.";
+                        await Bot.SendTextMessageAsync(e.Message.Chat, help);
+                        break;
                     default:
-                        await Bot.SendTextMessageAsync(e.Message.Chat,$"I Don't Reallly Understand That Holmes.");
+                        await Bot.SendTextMessageAsync(e.Message.Chat,$"I Don't Really Understand That Holmes.");
                         break;
                 }
             }
@@ -80,7 +80,7 @@ namespace MemeBot.Telegram_Client
                 if (!string.IsNullOrEmpty(e.Message.Caption))
                 {
                     DownloadFile(e.Message.Photo.LastOrDefault()?.FileId, path, e.Message.Caption);
-                    await Bot.SendTextMessageAsync(e.Message.Chat, "Downloaded");
+                    await Bot.SendTextMessageAsync(e.Message.Chat, "File Downloaded");
                     return;
                 }
                 await Bot.SendTextMessageAsync(e.Message.Chat, "Send A Caption Or /no For Empty Caption");
@@ -103,11 +103,8 @@ namespace MemeBot.Telegram_Client
         {
             try
             {
-                Console.WriteLine(caption);
-                 StreamWriter write = new StreamWriter($"/home/dharmy/Documents/config.txt",true);
+                StreamWriter write = new StreamWriter($"/home/dharmy/Documents/config.txt",true);
                 var img = await Bot.GetFileAsync(e);
-                Console.WriteLine(img.FileSize);
-                Console.WriteLine(img.FilePath);
                 string dUrl = $"https://api.telegram.org/file/bot{Token}/{img.FilePath}";
                 using (WebClient net = new WebClient())
                 {
@@ -118,7 +115,8 @@ namespace MemeBot.Telegram_Client
                     {
                         await write.WriteLineAsync(path + " - " + caption);
                     }
-
+                write.Close();
+                Console.WriteLine("Filename: {0}\nCaption: {1}",path,caption);
                 Console.WriteLine("Downloaded");
             }
 
