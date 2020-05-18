@@ -6,8 +6,6 @@ namespace MemeBot
     {
         static void Main(string[] args)
         {
-            if (!File.Exists($"/home/dharmy/Pictures/Config.txt"))
-                File.Create($"/home/dharmy/Pictures/Config.txt");
             Tg.Start();
         }
     }
