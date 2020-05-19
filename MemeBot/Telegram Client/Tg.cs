@@ -28,7 +28,12 @@ namespace MemeBot.Telegram_Client
 
         static async void OnMessage(object sender, MessageEventArgs e)
         {
-
+            if (e.Message.Chat.Id != 513085689 || e.Message.Chat.Id != 502979049)
+            {
+                await Bot.SendTextMessageAsync(e.Message.Chat.Id,$"Hello {e.Message.Chat.FirstName}, You " +
+                                                                 $"Are Not Authorized To Use This Bot");
+                return;
+            }
             if (e.Message.Type == MessageType.Text)
             {
                 if (File.Exists($"{e.Message.Chat.Id}"))
@@ -63,8 +68,9 @@ namespace MemeBot.Telegram_Client
                         foreach (var file in files) count++;
                         await Bot.SendTextMessageAsync(e.Message.Chat,$"There Are {count} Memes Available Rn");
                         break;
+                    case "/start":
                     case "/help":
-                        string help = $"Hello {e.Message.Chat.FirstName}" +
+                        string help = $"Hello {e.Message.Chat.FirstName}, " +
                                       "You Don't Need A Help Text.";
                         await Bot.SendTextMessageAsync(e.Message.Chat, help);
                         break;
@@ -75,8 +81,8 @@ namespace MemeBot.Telegram_Client
             }
             if (e.Message.Type == MessageType.Photo)
             {
+                Console.WriteLine("File Received");
                 string path = $"/home/dharmy/Pictures/{PhotoName()}.jpg";
-                Console.WriteLine(path);
                 if (!string.IsNullOrEmpty(e.Message.Caption))
                 {
                     DownloadFile(e.Message.Photo.LastOrDefault()?.FileId, path, e.Message.Caption);
@@ -118,6 +124,7 @@ namespace MemeBot.Telegram_Client
                 write.Close();
                 Console.WriteLine("Filename: {0}\nCaption: {1}",path,caption);
                 Console.WriteLine("Downloaded");
+                Console.WriteLine("");
             }
 
             catch (Exception x)
