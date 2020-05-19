@@ -6,7 +6,7 @@ namespace MemeBot
     {
         static void Main(string[] args)
         {
-            Tg.Start();
+           Tg.Start();
         }
     }
 }

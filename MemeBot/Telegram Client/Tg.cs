@@ -15,9 +15,10 @@ namespace MemeBot.Telegram_Client
     public static class Tg
     {
         private static ITelegramBotClient Bot;
-        private const string Token = "982750050:AAHtiha5647ulyjp9o_6Z-yoUqCsbuIjdyo";
+        private const string Token = "<Token Here>";
         public static void Start()
         {
+            
             Bot=new TelegramBotClient(Token);
             var me = Bot.GetMeAsync().Result;
             Console.WriteLine($"Hello, I'm {me.Id} And My Name Is {me.FirstName}");
