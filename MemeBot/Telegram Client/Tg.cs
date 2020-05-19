@@ -6,7 +6,6 @@ using System.Threading;
 using Telegram.Bot;
 using Telegram.Bot.Args;
 using Telegram.Bot.Types.Enums;
-using Telegram.Bot.Types.InlineQueryResults;
 using File = System.IO.File;
 
 namespace MemeBot.Telegram_Client
@@ -29,73 +28,80 @@ namespace MemeBot.Telegram_Client
 
         static async void OnMessage(object sender, MessageEventArgs e)
         {
-            if (e.Message.Chat.Id != 513085689 || e.Message.Chat.Id != 502979049)
+            if (e.Message.Chat.Id == 502979049 || e.Message.Chat.Id == 513085689)
+            {
+                if (e.Message.Type == MessageType.Text)
+                {
+                    if (File.Exists($"{e.Message.Chat.Id}"))
+                    {
+                        string caption = e.Message.Text;
+                        if (e.Message.Text.ToLower() == "/no")
+                        {
+                            await Bot.SendTextMessageAsync(e.Message.Chat, "Saving Picture Without Caption");
+                            caption = null;
+                        }
+
+                        {
+                            StreamReader reader = new StreamReader($"{e.Message.Chat.Id}");
+                            while (reader.EndOfStream == false)
+                            {
+                                string path = await reader.ReadLineAsync();
+                                string img = await reader.ReadLineAsync();
+                                DownloadFile(img, path, caption);
+                                reader.Close();
+                                File.Delete($"{e.Message.Chat.Id}");
+                                return;
+                            }
+                        }
+                    }
+
+                    Console.WriteLine(e.Message.Text.Split(' ').First());
+                    switch (e.Message.Text.Split(' ').First())
+                    {
+                        case "/count":
+                            var files = Directory
+                                .EnumerateFiles("/home/dharmy/Pictures", "*.*", SearchOption.AllDirectories)
+                                .Where(s => s.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                                            s.EndsWith(".png", StringComparison.OrdinalIgnoreCase));
+                            int count = 0;
+                            foreach (var file in files) count++;
+                            await Bot.SendTextMessageAsync(e.Message.Chat, $"There Are {count} Memes Available Rn");
+                            break;
+                        case "/start":
+                        case "/help":
+                            string help = $"Hello {e.Message.Chat.FirstName}, " +
+                                          "You Don't Need A Help Text.";
+                            await Bot.SendTextMessageAsync(e.Message.Chat, help);
+                            break;
+                        default:
+                            await Bot.SendTextMessageAsync(e.Message.Chat, $"I Don't Really Understand That Holmes.");
+                            break;
+                    }
+                }
+
+                if (e.Message.Type == MessageType.Photo)
+                {
+                    Console.WriteLine("File Received");
+                    string path = $"/home/dharmy/Pictures/{PhotoName()}.jpg";
+                    if (!string.IsNullOrEmpty(e.Message.Caption))
+                    {
+                        DownloadFile(e.Message.Photo.LastOrDefault()?.FileId, path, e.Message.Caption);
+                        await Bot.SendTextMessageAsync(e.Message.Chat, "File Downloaded");
+                        return;
+                    }
+
+                    await Bot.SendTextMessageAsync(e.Message.Chat, "Send A Caption Or /no For Empty Caption");
+                    await File.Create($"{e.Message.Chat.Id}").DisposeAsync();
+                    await using StreamWriter writer = new StreamWriter($"{e.Message.Chat.Id}");
+                    await writer.WriteLineAsync(path);
+                    await writer.WriteLineAsync(e.Message.Photo.LastOrDefault()?.FileId);
+                    writer.Close();
+                }
+            }
+            else
             {
                 await Bot.SendTextMessageAsync(e.Message.Chat.Id,$"Hello {e.Message.Chat.FirstName}, You " +
                                                                  $"Are Not Authorized To Use This Bot");
-                return;
-            }
-            if (e.Message.Type == MessageType.Text)
-            {
-                if (File.Exists($"{e.Message.Chat.Id}"))
-                {
-                    string caption = e.Message.Text;
-                    if (e.Message.Text.ToLower() == "/no")
-                    {
-                        await Bot.SendTextMessageAsync(e.Message.Chat, "Saving Picture Without Caption");
-                        caption = null;
-                    }
-                    {
-                        StreamReader reader = new StreamReader($"{e.Message.Chat.Id}");
-                        while (reader.EndOfStream == false)
-                        {
-                            string path = await reader.ReadLineAsync();
-                            string img = await reader.ReadLineAsync();
-                            DownloadFile(img, path, caption);
-                            reader.Close();
-                            File.Delete($"{e.Message.Chat.Id}");
-                            return;
-                        }
-                    }
-                }
-                Console.WriteLine(e.Message.Text.Split(' ').First());
-                switch (e.Message.Text.Split(' ').First())
-                {
-                    case "/count":
-                        var files = Directory
-                            .EnumerateFiles("/home/dharmy/Pictures", "*.*", SearchOption.AllDirectories)
-                            .Where(s => s.EndsWith(".jpg",StringComparison.OrdinalIgnoreCase)||s.EndsWith(".png",StringComparison.OrdinalIgnoreCase));
-                        int count = 0;
-                        foreach (var file in files) count++;
-                        await Bot.SendTextMessageAsync(e.Message.Chat,$"There Are {count} Memes Available Rn");
-                        break;
-                    case "/start":
-                    case "/help":
-                        string help = $"Hello {e.Message.Chat.FirstName}, " +
-                                      "You Don't Need A Help Text.";
-                        await Bot.SendTextMessageAsync(e.Message.Chat, help);
-                        break;
-                    default:
-                        await Bot.SendTextMessageAsync(e.Message.Chat,$"I Don't Really Understand That Holmes.");
-                        break;
-                }
-            }
-            if (e.Message.Type == MessageType.Photo)
-            {
-                Console.WriteLine("File Received");
-                string path = $"/home/dharmy/Pictures/{PhotoName()}.jpg";
-                if (!string.IsNullOrEmpty(e.Message.Caption))
-                {
-                    DownloadFile(e.Message.Photo.LastOrDefault()?.FileId, path, e.Message.Caption);
-                    await Bot.SendTextMessageAsync(e.Message.Chat, "File Downloaded");
-                    return;
-                }
-                await Bot.SendTextMessageAsync(e.Message.Chat, "Send A Caption Or /no For Empty Caption");
-                await File.Create($"{e.Message.Chat.Id}").DisposeAsync();
-                await using StreamWriter writer = new StreamWriter($"{e.Message.Chat.Id}");
-                await writer.WriteLineAsync(path);
-                await writer.WriteLineAsync(e.Message.Photo.LastOrDefault()?.FileId);
-                writer.Close();
             }
         }
 
