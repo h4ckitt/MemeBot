@@ -16,9 +16,13 @@ namespace MemeBot.Telegram_Client
         private static ITelegramBotClient Bot;
         private const string Token = "<Token Here>";
         public static void Start()
-        {
-            
-            Bot=new TelegramBotClient(Token);
+        {            
+            Bot=new TelegramBotClient(Token);    
+            if (!File.Exists($"/home/dharmy/Documents/config.csv")) {                
+                StreamWriter write = new StreamWriter($"/home/dharmy/Documents/config.csv",true);
+                write.WriteLineAsync("Index,Full");
+                write.Close();
+            }
             var me = Bot.GetMeAsync().Result;
             Console.WriteLine($"Hello, I'm {me.Id} And My Name Is {me.FirstName}");
             Bot.OnMessage += OnMessage;
@@ -80,8 +84,10 @@ namespace MemeBot.Telegram_Client
                 }
 
                 if (e.Message.Type == MessageType.Photo)
-                {
+                {                
+
                     Console.WriteLine("File Received");
+
                     string path = $"/home/dharmy/Pictures/{PhotoName()}.jpg";
                     if (!string.IsNullOrEmpty(e.Message.Caption))
                     {
@@ -115,8 +121,9 @@ namespace MemeBot.Telegram_Client
         private static async void DownloadFile(string e, string path, string caption)
         {
             try
-            {
-                StreamWriter write = new StreamWriter($"/home/dharmy/Documents/config.txt",true);
+            {    
+                long count = File.ReadLines($"/home/dharmy/Documents/config.csv").Count() - 1;
+                StreamWriter write = new StreamWriter($"/home/dharmy/Documents/config.csv",true);                
                 var img = await Bot.GetFileAsync(e);
                 string dUrl = $"https://api.telegram.org/file/bot{Token}/{img.FilePath}";
                 using (WebClient net = new WebClient())
@@ -126,7 +133,8 @@ namespace MemeBot.Telegram_Client
                 if (! string.IsNullOrEmpty(caption))
                     using (write)
                     {
-                        await write.WriteLineAsync(path + " - " + caption);
+                        await write.WriteLineAsync(count+","+path + " | " + caption);
+                        count++;
                     }
                 write.Close();
                 Console.WriteLine("Filename: {0}\nCaption: {1}",path,caption);
