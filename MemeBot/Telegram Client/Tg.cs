@@ -15,23 +15,30 @@ namespace MemeBot.Telegram_Client
     {
         private static ITelegramBotClient Bot;
         private const string Token = "<Token Here>";
-        public static void Start()
+        public static async void Start()
         {            
             Bot=new TelegramBotClient(Token);    
-            if (!File.Exists($"/home/dharmy/Documents/config.csv")) {                
-                StreamWriter write = new StreamWriter($"/home/dharmy/Documents/config.csv",true);
-                write.WriteLineAsync("Index,Full");
+            if (!File.Exists($"/root/memeler/config.csv")) {                
+                StreamWriter write = new StreamWriter($"/root/memeler/config.csv",true);
+                await write.WriteLineAsync("Full");
                 write.Close();
             }
             var me = Bot.GetMeAsync().Result;
             Console.WriteLine($"Hello, I'm {me.Id} And My Name Is {me.FirstName}");
             Bot.OnMessage += OnMessage;
+            try {
             Bot.StartReceiving();
             Thread.Sleep(int.MaxValue);
+        }
+        	catch (AggregateException ex) {
+        		Console.WriteLine(ex.Message+":\n");
+        		Console.WriteLine("Bad Network Connection Or Token.");
+        	}
         }
 
         static async void OnMessage(object sender, MessageEventArgs e)
         {
+        	StreamWriter logger = new StreamWriter($"/root/memeler/logs.txt", true);
             if (e.Message.Chat.Id == 502979049 || e.Message.Chat.Id == 513085689)
             {
                 if (e.Message.Type == MessageType.Text)
@@ -49,9 +56,11 @@ namespace MemeBot.Telegram_Client
                             StreamReader reader = new StreamReader($"{e.Message.Chat.Id}");
                             while (reader.EndOfStream == false)
                             {
-                                string path = await reader.ReadLineAsync();
+                                string imagename = await reader.ReadLineAsync();
                                 string img = await reader.ReadLineAsync();
-                                DownloadFile(img, path, caption);
+                                await logger.WriteLineAsync("Caption: "+ caption);
+                                DownloadFile(img, imagename, caption);
+                                await Bot.SendTextMessageAsync(e.Message.Chat, "File Downloaded");
                                 reader.Close();
                                 File.Delete($"{e.Message.Chat.Id}");
                                 return;
@@ -59,12 +68,11 @@ namespace MemeBot.Telegram_Client
                         }
                     }
 
-                    Console.WriteLine(e.Message.Text.Split(' ').First());
                     switch (e.Message.Text.Split(' ').First())
                     {
                         case "/count":
                             var files = Directory
-                                .EnumerateFiles("/home/dharmy/Pictures", "*.*", SearchOption.AllDirectories)
+                                .EnumerateFiles("/root/memeler/images", "*.*", SearchOption.AllDirectories)
                                 .Where(s => s.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
                                             s.EndsWith(".png", StringComparison.OrdinalIgnoreCase));
                             int count = 0;
@@ -78,6 +86,7 @@ namespace MemeBot.Telegram_Client
                             await Bot.SendTextMessageAsync(e.Message.Chat, help);
                             break;
                         default:
+                        	await logger.WriteLineAsync("Unknown Command "+ e.Message.Text +" Sent.");
                             await Bot.SendTextMessageAsync(e.Message.Chat, $"I Don't Really Understand That Holmes.");
                             break;
                     }
@@ -86,12 +95,15 @@ namespace MemeBot.Telegram_Client
                 if (e.Message.Type == MessageType.Photo)
                 {                
 
-                    Console.WriteLine("File Received");
+                    await logger.WriteLineAsync("Message Received From " + e.Message.Chat.FirstName + " With Chat ID " + e.Message.Chat.Id +":");
 
-                    string path = $"/home/dharmy/Pictures/{PhotoName()}.jpg";
+                    string imagename = $"{PhotoName()}.jpg";
+
+                    await logger.WriteLineAsync("Picture File Name: " + imagename);
                     if (!string.IsNullOrEmpty(e.Message.Caption))
                     {
-                        DownloadFile(e.Message.Photo.LastOrDefault()?.FileId, path, e.Message.Caption);
+                    	await logger.WriteLineAsync("Caption: " + e.Message.Caption);
+                        DownloadFile(e.Message.Photo.LastOrDefault()?.FileId, imagename, e.Message.Caption);
                         await Bot.SendTextMessageAsync(e.Message.Chat, "File Downloaded");
                         return;
                     }
@@ -99,16 +111,18 @@ namespace MemeBot.Telegram_Client
                     await Bot.SendTextMessageAsync(e.Message.Chat, "Send A Caption Or /no For Empty Caption");
                     await File.Create($"{e.Message.Chat.Id}").DisposeAsync();
                     await using StreamWriter writer = new StreamWriter($"{e.Message.Chat.Id}");
-                    await writer.WriteLineAsync(path);
+                    await writer.WriteLineAsync(imagename);
                     await writer.WriteLineAsync(e.Message.Photo.LastOrDefault()?.FileId);
                     writer.Close();
                 }
-            }
+            }            
             else
             {
                 await Bot.SendTextMessageAsync(e.Message.Chat.Id,$"Hello {e.Message.Chat.FirstName}, You " +
                                                                  $"Are Not Authorized To Use This Bot");
             }
+            await logger.WriteLineAsync("\n");
+            logger.Close();
         }
 
         private static string PhotoName()
@@ -118,32 +132,36 @@ namespace MemeBot.Telegram_Client
             return new string(value: Enumerable.Repeat(chars,12).Select(s=>s[random.Next(s.Length)]).ToArray());
         }
 
-        private static async void DownloadFile(string e, string path, string caption)
+        private static async void DownloadFile(string e, string imagename, string caption)
         {
             try
-            {    
-                long count = File.ReadLines($"/home/dharmy/Documents/config.csv").Count() - 1;
-                StreamWriter write = new StreamWriter($"/home/dharmy/Documents/config.csv",true);                
+            {
+            	string path = "/root/memeler/images/" + imagename;    
+                StreamWriter write = new StreamWriter($"/root/memeler/config.csv",true);                
                 var img = await Bot.GetFileAsync(e);
                 string dUrl = $"https://api.telegram.org/file/bot{Token}/{img.FilePath}";
                 using (WebClient net = new WebClient())
                 {
                     net.DownloadFileAsync(new Uri(dUrl), path);
+                }                
+                using (write)
+                {
+                    await write.WriteLineAsync(imagename + " | " + caption);
                 }
-                if (! string.IsNullOrEmpty(caption))
-                    using (write)
-                    {
-                        await write.WriteLineAsync(count+","+path + " | " + caption);
-                        count++;
-                    }
                 write.Close();
-                Console.WriteLine("Filename: {0}\nCaption: {1}",path,caption);
+                Console.WriteLine("Filename: {0}\nCaption: {1}",imagename,caption);
                 Console.WriteLine("Downloaded");
                 Console.WriteLine("");
             }
 
             catch (Exception x)
             {
+            	using (StreamWriter log = new StreamWriter($"/root/memeler/logs.txt", true))
+            	{
+            		await log.WriteLineAsync("Error Getting File: "+ imagename);
+            		await log.WriteLineAsync("Error Message: "+ x.Message);
+            		log.Close();
+            	}
                 Console.WriteLine("Error Getting File: "+x.Message);
             }
         }
